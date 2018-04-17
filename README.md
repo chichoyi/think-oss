@@ -2,13 +2,18 @@
 thinkphp (>5.0) aliyun-oss 阿里云对象存储  
 
 # 安装
+
     composer require chichoyi/think-oss
 
 # 配置
-    配置文件位于 application/extra/oss.php
+
+    配置方式一：手动复制 vendor/chichoyi/think-oss/src/oss.php 到 application/extra/
+    
+    配置方式二: 在 application/extra/ 目录下创建文件 oss.php , 然后复制下一步的配置参数到该文件
+    
     
 ## 配置参数
-    [
+    return [
     
         //支持驱动：阿里云（oss）, 此版本暂时只支持使用阿里云驱动
         'driver' => 'oss',
@@ -49,11 +54,14 @@ thinkphp (>5.0) aliyun-oss 阿里云对象存储
             'private_bucket' => 'your private bucket',
             //...
         ],
-    ]
+    ];
     
 ### 配置说明
-    文件目录配置和生产桶或测试桶的关系是：文件目录子项的type参数就是生产桶或测试桶的索引（对应关系）,使用者可以根据规则灵活配置，
-    文件目录的type 默认是default类型，如果有(private_)前缀的话将会自动识别该桶是私有桶(属性为私有)，即访问该图片需要授权签名，上传图片将会自动返回可访问的路径；公共桶(属性为公共读)不需添加此前缀
+
+    文件目录配置和生产桶或测试桶的关系是：文件目录子项的type参数就是生产桶或测试桶的索引（对应关系）,
+    使用者可以根据规则灵活配置，文件目录的type 默认是default类型，如果有(private_)前缀的话将会自动识
+    别该桶是私有桶(属性为私有)，即访问该图片需要授权签名，上传图片将会自动返回可访问的路径；
+    公共桶(属性为公共读)不需添加此前缀
     
 # 使用
     namespace app\index\controller;
@@ -81,7 +89,9 @@ thinkphp (>5.0) aliyun-oss 阿里云对象存储
  
  ### 1. 上传图片
       upload($input_name, $dir = 'DEFAULT', $rule = ['ext' => ['gif', 'jpg', 'jpeg', 'bmp', 'png', 'swf']])      //$input_name 表单的name,比如前端上传图片是 <input type='file' name='img'> 那么填的就是img了
+      
       $dir 目录名称 对应的是application/extra/oss.php的directory的选项, 默认是DEFAUL
+      
       $rule 验证规则 默认验证后缀'gif', 'jpg', 'jpeg', 'bmp', 'png', 'swf'
       [
           'ext' => [],  //检查文件后缀 
@@ -100,13 +110,16 @@ thinkphp (>5.0) aliyun-oss 阿里云对象存储
       
 ### 2. 删除图片
       delete($path) 
+      
       $path 图片路径（相对路径或全路径，注：相对路径字符串第一个字符不能加斜杆/）
       
       返回格式如下
       ['code' => 20000, 'msg' => '操作成功', 'data' => '']
 ### 3. 获取图片访问路径
       getImgPath($path, $timeout = 3600)
+      
       $path 图片相对路径
+      
       $timeout 图片访问过期时间，默认3600s
       
       返回格式如下
@@ -115,6 +128,7 @@ thinkphp (>5.0) aliyun-oss 阿里云对象存储
       
 ### 4. 将绝对路径转成相对路径
       handleUrl（$url）
+      
       $url 图片绝对路径
       
       返回格式如下
@@ -122,6 +136,19 @@ thinkphp (>5.0) aliyun-oss 阿里云对象存储
      
 ### 5. 底层调用
       baseCall（$method, $arguments, $is_ret_original = false）
+      
       $method 方法名 支持aliyun-oss-sdk包OssClient类的所有方法调用，使用者可根据需求自行调用sdk包的其他方法
+      
       $arguments 参数，需要传数组格式
+      
       $is_ret_original 是否返回源响应，调用成功默认返回true
+      
+# 作者言
+
+    由于thinkphp官方不支持第三方对象存储，所以才有了这个拓展包出现。
+    
+    此版只支持阿里云的对象存储，未来将会支持腾讯云的对象存储。
+    
+    若发现bug，还请多多指正，可以将Bug反馈到作者邮箱（chichoyi@163.com）。
+    
+   
