@@ -112,6 +112,7 @@ class ThinkOss
      */
     public function delete($path){
         $path = $this->handleUrl($path);
+        if ($path == '') return '图片路径不能为空';
         $bucket_info = $this->getBucketByPath($path);
 
         $result =  $this->baseCall('deleteObject', [$bucket_info['bucket'], $path]);
@@ -130,6 +131,7 @@ class ThinkOss
      */
     public function getImgPath($path, $timeout = 3600){
         $path = $this->handleUrl($path);
+        if ($path == '') return '图片路径不能为空';
         $bucket_info = $this->getBucketByPath($path);
         if ($this->driver == 'oss'){
             $result = strpos($bucket_info['type'], 'private_');

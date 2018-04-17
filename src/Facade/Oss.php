@@ -6,7 +6,7 @@
  * Time: 18:07
  */
 
-namespace Chichoyi\ThinkOss\Facede;
+namespace Chichoyi\ThinkOss\Facade;
 
 use Chichoyi\ThinkOss\ThinkOss;
 
