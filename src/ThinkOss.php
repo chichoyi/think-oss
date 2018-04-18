@@ -133,6 +133,9 @@ class ThinkOss
         $path = $this->handleUrl($path);
         if ($path == '') return '图片路径不能为空';
         $bucket_info = $this->getBucketByPath($path);
+        if (array_key_exists('code', $bucket_info)){
+            if ($bucket_info['code'] == 50000) return $path;
+        }
         if ($this->driver == 'oss'){
             $result = strpos($bucket_info['type'], 'private_');
             if ($result !== false){
