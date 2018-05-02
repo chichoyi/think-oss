@@ -54,6 +54,9 @@ thinkphp (>5.0) aliyun-oss 阿里云对象存储
             'private_bucket' => 'your private bucket',
             //...
         ],
+        
+        //默认false；若为true，使用upload方法，将保存一份到oss，同时保存到本地
+        'is_save_to_local' => 'false',
     ];
     
 ### 配置说明

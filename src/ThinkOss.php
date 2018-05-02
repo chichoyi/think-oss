@@ -35,10 +35,6 @@ class ThinkOss
         $this->directory = config('oss.directory');
     }
 
-    public function test(){
-        return 'chicho test';
-    }
-
     /**
      * description 上传图片
      * author chicho
@@ -69,8 +65,9 @@ class ThinkOss
 
                 $path = $this->setFileName($file, $real_dir);
                 $content = file_get_contents($file->getInfo('tmp_name'));
-
                 $result = $this->baseCall('putObject', [$this->bucket, $path, $content]);
+
+                $this->saveToLocal($file->getInfo('tmp_name'), $path);
                 if ($result === true){
                     $this->setUploadInfo('success', $path, '', $this->getImgPath($path));
                 }else{
@@ -84,6 +81,7 @@ class ThinkOss
             $content = file_get_contents($info->getInfo('tmp_name'));
             $path = $this->setFileName($info, $real_dir);
             $result = $this->baseCall('putObject', [$this->bucket, $path, $content]);
+            $this->saveToLocal($info->getInfo('tmp_name'), $path);
             if ($result !== true) return $result;
             $this->upload_info = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
         }
@@ -187,6 +185,22 @@ class ThinkOss
     //下载文件
     public function download($path){
 
+    }
+
+    /**
+     * description 本地保存文件
+     * author chicho
+     * @param $file
+     * @param $path
+     * @return bool
+     */
+    protected function saveToLocal($file, $path){
+        if (!config('oss.is_save_to_local')) return false;
+        $path = 'uploads/' . $path;
+        $path_dir = str_replace(basename($path), '', $path);
+        if (!file_exists($path_dir))
+            mkdir ($path_dir, 0777, true );
+        return move_uploaded_file($file, $path);
     }
 
     /**
