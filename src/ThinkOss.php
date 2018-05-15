@@ -200,7 +200,7 @@ class ThinkOss
         $path_dir = str_replace(basename($path), '', $path);
         if (!file_exists($path_dir))
             mkdir ($path_dir, 0777, true );
-        return move_uploaded_file($file, $path);
+        return file_put_contents($path, file_get_contents($file));
     }
 
     /**
