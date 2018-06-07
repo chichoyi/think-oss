@@ -10,6 +10,7 @@ namespace Chichoyi\ThinkOss;
 use OSS\Core\OssException;
 use OSS\OssClient;
 use think\exception\ErrorException;
+use Qcloud\Cos\Client;
 
 class ThinkOss
 {
@@ -27,11 +28,25 @@ class ThinkOss
         if ($check_config !== true)
             throw new ErrorException(0, $check_config,  __FILE__, __LINE__);
 
-        if ($this->driver == 'oss'){
-            $this->instance = new OssClient($this->connection['access_id'], $this->connection['access_secret'], $this->connection['endpoint']);
-        }else{
-            throw new ErrorException(0, '驱动不存在',  __FILE__, __LINE__);
+        switch ($this->driver){
+            case 'oss':
+                $this->instance = new OssClient($this->connection['access_id'], $this->connection['access_secret'], $this->connection['endpoint']);
+                break;
+            case 'cos':
+                $this->instance = new Client(
+                    [
+                        'region' => $this->connection['region'],
+                        'credentials' => [
+                            'secretId' => $this->connection['access_id'],
+                            'secretKey' => $this->connection['access_secret']
+                        ],
+                    ]);
+                break;
+            default:
+                throw new ErrorException(0, '驱动不存在',  __FILE__, __LINE__);
+                break;
         }
+
         $this->directory = config('oss.directory');
     }
 
@@ -62,11 +77,10 @@ class ThinkOss
                     $this->setUploadInfo('error', $file->getInfo('name'), $file->getError());
                     continue;
                 }
-
                 $path = $this->setFileName($file, $real_dir);
                 $content = file_get_contents($file->getInfo('tmp_name'));
-                $result = $this->baseCall('putObject', [$this->bucket, $path, $content]);
 
+                $result = $this->putObject($path, $content);
                 $this->saveToLocal($file->getInfo('tmp_name'), $path);
                 if ($result === true){
                     $this->setUploadInfo('success', $path, '', $this->getImgPath($path));
@@ -80,13 +94,30 @@ class ThinkOss
             if ($check_rule !== true) return $this->ret(50000, $info->getError());
             $content = file_get_contents($info->getInfo('tmp_name'));
             $path = $this->setFileName($info, $real_dir);
-            $result = $this->baseCall('putObject', [$this->bucket, $path, $content]);
+
+            $result = $this->putObject($path, $content);
             $this->saveToLocal($info->getInfo('tmp_name'), $path);
             if ($result !== true) return $result;
             $this->upload_info = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
         }
 
         return $this->upload_info;
+    }
+
+    /**
+     * description 单或多图上传
+     * author chicho
+     * @param $path
+     * @param $content
+     * @return array|bool|mixed
+     * @throws ErrorException
+     */
+    protected function putObject($path, $content){
+        if ($this->driver == 'oss'){
+            return $this->baseCall('putObject', [$this->bucket, $path, $content]);
+        }elseif ($this->driver == 'cos'){
+            return $this->baseCall('putObject', [['Bucket' => $this->bucket, 'Key' => $path, 'Body' => $content]]);
+        }
     }
 
     /**
@@ -113,9 +144,13 @@ class ThinkOss
         if ($path == '') return '图片路径不能为空';
         $bucket_info = $this->getBucketByPath($path);
 
-        $result =  $this->baseCall('deleteObject', [$bucket_info['bucket'], $path]);
-        if ($result !== true) return $result;
+        if ($this->driver == 'oss'){
+            $result =  $this->baseCall('deleteObject', [$bucket_info['bucket'], $path]);
+        }elseif ($this->driver == 'cos'){
+            $result =  $this->baseCall('deleteObject', [['Bucket' => $bucket_info['bucket'], 'Key' => $path]]);
+        }
 
+        if ($result !== true) return $result;
         return $this->ret();
     }
 
@@ -134,14 +169,16 @@ class ThinkOss
         if (array_key_exists('code', $bucket_info)){
             if ($bucket_info['code'] == 50000) return $path;
         }
+
+        $result = strpos($bucket_info['type'], 'private_');
         if ($this->driver == 'oss'){
-            $result = strpos($bucket_info['type'], 'private_');
-            if ($result !== false){
-                //需要授权访问
+            if ($result !== false)
                 return $this->baseCall('signUrl', [$bucket_info['bucket'], $path, $timeout], true);
-            }else{
-                return "https://".$bucket_info['bucket'] . '.' . $this->connection['endpoint'] . '/' . $path;
-            }
+            return "https://".$bucket_info['bucket'] . '.' . $this->connection['endpoint'] . '/' . $path;
+        }elseif ($this->driver == 'cos'){
+            if ($result !== false)
+                return $this->baseCall('getObjectUrl', [$bucket_info['bucket'], $path, '+'. $timeout / 60 .' minutes'], true);
+            return "https://".$bucket_info['bucket'] . '.cos.' . $this->connection['region'] . '.myqcloud.com/' . $path;
         }
     }
 
@@ -296,15 +333,25 @@ class ThinkOss
      * @throws ErrorException
      */
     public function baseCall($method, $arguments, $is_ret_original = false){
-        if (!in_array($method, get_class_methods($this->instance)))
-            throw new ErrorException(0, '方法不存在',  __FILE__, __LINE__);
 
         if ($this->driver == 'oss'){
+            if (!in_array($method, get_class_methods($this->instance)))
+                throw new ErrorException(0, '方法不存在',  __FILE__, __LINE__);
+
             try{
                 $result = call_user_func_array(array($this->instance, $method), $arguments);
                 if ($is_ret_original) return $result;
                 return true;
             }catch (OssException $e){
+                return $this->ret(50000, $e->getMessage());
+            }
+        }elseif($this->driver == 'cos'){
+            try{
+                $result = call_user_func_array(array($this->instance, $method), $arguments);
+
+                if ($is_ret_original) return $result;
+                return true;
+            }catch (\Exception $e){
                 return $this->ret(50000, $e->getMessage());
             }
         }

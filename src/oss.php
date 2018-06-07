@@ -8,7 +8,7 @@
 
 return [
 
-    //支持驱动：阿里云（oss）, 此版本暂时只支持使用阿里云驱动
+    //支持驱动：阿里云（oss）, 腾讯云（cos）
     'driver' => 'oss',
 
     //驱动连接参数
@@ -19,7 +19,13 @@ return [
             'access_id' => '',
             'access_secret' => '',
             'endpoint' => '',
-            'endpoint_internal' => '',
+        ],
+
+        //腾讯云-cos
+        'cos' => [
+            'access_id' => '',
+            'access_secret' => '',
+            'region' => '',
         ],
 
     ],
