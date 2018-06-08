@@ -1,5 +1,5 @@
 # think-oss
-thinkphp (>5.0) aliyun-oss 阿里云对象存储  腾讯云对象存储
+thinkphp (>5.0) aliyun-oss 阿里云对象存储  腾讯云对象存储 支持切换只存本地
 
 # 安装
 
@@ -63,6 +63,11 @@ thinkphp (>5.0) aliyun-oss 阿里云对象存储  腾讯云对象存储
         
         //默认false；若为true，使用upload方法，将保存一份到oss，同时保存到本地
         'is_save_to_local' => 'false',
+        
+        //true - 不使用对象存储  false - 使用对象存储
+        'un_oss' => false,
+        //域名，上传成功返回可访问路径需要用到
+        'domain' => 'http://localhost'
     ];
     
 ### 配置说明

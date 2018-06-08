@@ -15,6 +15,7 @@ use Qcloud\Cos\Client;
 class ThinkOss
 {
 
+    private $un_oss;
     private $instance;
     private $driver;
     private $connection;
@@ -28,23 +29,25 @@ class ThinkOss
         if ($check_config !== true)
             throw new ErrorException(0, $check_config,  __FILE__, __LINE__);
 
-        switch ($this->driver){
-            case 'oss':
-                $this->instance = new OssClient($this->connection['access_id'], $this->connection['access_secret'], $this->connection['endpoint']);
-                break;
-            case 'cos':
-                $this->instance = new Client(
-                    [
-                        'region' => $this->connection['region'],
-                        'credentials' => [
-                            'secretId' => $this->connection['access_id'],
-                            'secretKey' => $this->connection['access_secret']
-                        ],
-                    ]);
-                break;
-            default:
-                throw new ErrorException(0, '驱动不存在',  __FILE__, __LINE__);
-                break;
+        if ($this->un_oss !== true){
+            switch ($this->driver){
+                case 'oss':
+                    $this->instance = new OssClient($this->connection['access_id'], $this->connection['access_secret'], $this->connection['endpoint']);
+                    break;
+                case 'cos':
+                    $this->instance = new Client(
+                        [
+                            'region' => $this->connection['region'],
+                            'credentials' => [
+                                'secretId' => $this->connection['access_id'],
+                                'secretKey' => $this->connection['access_secret']
+                            ],
+                        ]);
+                    break;
+                default:
+                    throw new ErrorException(0, '驱动不存在',  __FILE__, __LINE__);
+                    break;
+            }
         }
 
         $this->directory = config('oss.directory');
@@ -80,13 +83,18 @@ class ThinkOss
                 $path = $this->setFileName($file, $real_dir);
                 $content = file_get_contents($file->getInfo('tmp_name'));
 
-                $result = $this->putObject($path, $content);
-                $this->saveToLocal($file->getInfo('tmp_name'), $path);
-                if ($result === true){
-                    $this->setUploadInfo('success', $path, '', $this->getImgPath($path));
-                }else{
-                    $this->setUploadInfo('error', $path, $result['msg']);
+                if (!$this->un_oss){
+                    $result = $this->putObject($path, $content);
+                    if ($result === true){
+                        $this->setUploadInfo('success', $path, '', $this->getImgPath($path));
+                    }else{
+                        $this->setUploadInfo('error', $path, $result['msg']);
+                    }
                 }
+
+                $result = $this->saveToLocal($file->getInfo('tmp_name'), $path);
+                if ($this->un_oss && $result > 0)
+                    $this->setUploadInfo('success', 'uploads/'.$path, '', $this->getImgPath('uploads/'.$path));
             }
         }else{
             //单图片上传
@@ -95,10 +103,15 @@ class ThinkOss
             $content = file_get_contents($info->getInfo('tmp_name'));
             $path = $this->setFileName($info, $real_dir);
 
-            $result = $this->putObject($path, $content);
-            $this->saveToLocal($info->getInfo('tmp_name'), $path);
-            if ($result !== true) return $result;
-            $this->upload_info = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
+            if (!$this->un_oss){
+                $result = $this->putObject($path, $content);
+                if ($result !== true) return $result;
+                $this->upload_info = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
+            }
+
+            $result = $this->saveToLocal($info->getInfo('tmp_name'), $path);
+            if ($this->un_oss && $result > 0)
+                $this->upload_info = ['path' => 'uploads/'.$path, 'visit_path' => $this->getImgPath('uploads/'.$path)];
         }
 
         return $this->upload_info;
@@ -142,6 +155,12 @@ class ThinkOss
     public function delete($path){
         $path = $this->handleUrl($path);
         if ($path == '') return '图片路径不能为空';
+
+        if ($this->un_oss){
+            @unlink($path);
+            return $this->ret();
+        }
+
         $bucket_info = $this->getBucketByPath($path);
 
         if ($this->driver == 'oss'){
@@ -163,6 +182,9 @@ class ThinkOss
      * @throws ErrorException
      */
     public function getImgPath($path, $timeout = 3600){
+        if ($this->un_oss)
+            return config('oss.domain').'/'.$path;
+
         $path = $this->handleUrl($path);
         if ($path == '') return '';
         $bucket_info = $this->getBucketByPath($path);
@@ -258,6 +280,9 @@ class ThinkOss
      * @return bool|string
      */
     protected function checkConfig(){
+        $this->un_oss = config('oss.un_oss');
+        if ($this->un_oss === true) return true;
+
         $driver = config('oss.driver');
         if (empty($driver)) return '请配置驱动';
 

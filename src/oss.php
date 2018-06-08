@@ -54,7 +54,12 @@ return [
         //...
     ],
 
-    'is_save_to_local' => 'false',
+    //是否上传到对象存储同时保存到本地
+    'is_save_to_local' => false,
+
+    //true - 不使用对象存储  false - 使用对象存储
+    'un_oss' => false,
+    'domain' => 'http://localhost'
 
 
 
