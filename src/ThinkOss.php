@@ -14,7 +14,6 @@ use Qcloud\Cos\Client;
 
 class ThinkOss
 {
-
     private $un_oss;
     private $instance;
     private $driver;
@@ -190,6 +189,7 @@ class ThinkOss
         $bucket_info = $this->getBucketByPath($path);
         if (array_key_exists('code', $bucket_info)){
             if ($bucket_info['code'] == 50000)
+                //拼接域名
                 return config('oss.domain').$path;
         }
 
