@@ -181,16 +181,17 @@ class ThinkOss
      * @throws ErrorException
      */
     public function getImgPath($path, $timeout = 3600){
-        if ($this->un_oss)
+        if ($this->un_oss){
             return config('oss.domain').$path;
+        }
 
         $path = $this->handleUrl($path);
         if ($path == '') return '';
         $bucket_info = $this->getBucketByPath($path);
         if (array_key_exists('code', $bucket_info)){
-            if ($bucket_info['code'] == 50000)
-                //拼接域名
+            if ($bucket_info['code'] == 50000){
                 return config('oss.domain').$path;
+            }
         }
 
         $result = strpos($bucket_info['type'], 'private_');
