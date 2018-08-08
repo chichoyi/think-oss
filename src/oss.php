@@ -59,6 +59,8 @@ return [
 
     //true - 不使用对象存储  false - 使用对象存储
     'un_oss' => false,
+
+    //静态文件防止的目录
     'domain' => 'http://localhost'
 
 

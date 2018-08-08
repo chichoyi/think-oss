@@ -287,6 +287,9 @@ class ThinkOss
 
         $driver = config('oss.driver');
         if (empty($driver)) return '请配置驱动';
+        if (!in_array($driver, ['oss', 'cos'])){
+            return '暂不支持该驱动';
+        }
 
         $connection = config('oss.connection')[$driver];
 
