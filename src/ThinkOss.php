@@ -125,6 +125,9 @@ class ThinkOss
      * @throws ErrorException
      */
     public function localToOss($filePath = '', $dir = 'DEFAULT'){
+        if (!array_key_exists($dir, $this->directory))
+            throw new ErrorException(0, '所选目录不存在',  __FILE__, __LINE__);
+
         if (!is_file($filePath))
             return $this->ret(50000, '文件路径错误');
 
