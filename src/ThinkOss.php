@@ -129,11 +129,9 @@ class ThinkOss
             return $this->ret(50000, '文件路径错误');
 
         $this->getBucket($this->directory[$dir]['type']);
-
         $path = $this->setFileName($filePath, $this->directory[$dir]['dir']);
         $content = file_get_contents($filePath);
         $result = $this->putObject($path, $content);
-
         if ($result !== true) return $result;
         $this->upload_info = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
 
