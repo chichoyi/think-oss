@@ -117,6 +117,30 @@ class ThinkOss
     }
 
     /**
+     * description 本地图片上传到云存储
+     * author chicho
+     * @param string $filePath
+     * @param string $dir
+     * @return array|bool|mixed
+     * @throws ErrorException
+     */
+    public function localToOss($filePath = '', $dir = 'DEFAULT'){
+        if (!is_file($filePath))
+            return $this->ret(50000, '文件路径错误');
+
+        $this->getBucket($this->directory[$dir]['type']);
+
+        $path = $this->setFileName($filePath, $this->directory[$dir]['dir']);
+        $content = file_get_contents($filePath);
+        $result = $this->putObject($path, $content);
+
+        if ($result !== true) return $result;
+        $this->upload_info = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
+
+        return $this->upload_info;
+    }
+
+    /**
      * description 单或多图上传
      * author chicho
      * @param $path
@@ -335,8 +359,15 @@ class ThinkOss
      * @return string
      */
     protected function setFileName($info, $dir){
-        $ext = strtolower(pathinfo($info->getInfo('name'), PATHINFO_EXTENSION));
-        $md5_name = md5_file($info->getInfo('tmp_name')).rand(1,999).'.'.$ext;
+        if (is_string($info)){
+            $path = $info;
+            $filePath = $info;
+        }else{
+            $path = $info->getInfo('name');
+            $filePath = $info->getInfo('tmp_name');
+        }
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $md5_name = md5_file($filePath).rand(1,999).'.'.$ext;
         return $dir . date('Ym/d', time()). '/'. $md5_name;
     }
 
