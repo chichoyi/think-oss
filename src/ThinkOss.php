@@ -14,21 +14,21 @@ use Qcloud\Cos\Client;
 
 class ThinkOss
 {
-    private $un_oss;
+    private $unOss;
     private $instance;
     private $driver;
     private $connection;
     private $directory;
     private $bucket;
-    private $upload_info = [];
+    private $uploadInfo = [];
 
     public function __construct()
     {
-        $check_config = $this->checkConfig();
-        if ($check_config !== true)
-            throw new ErrorException(0, $check_config,  __FILE__, __LINE__);
+        $checkConfig = $this->checkConfig();
+        if ($checkConfig !== true)
+            throw new ErrorException(0, $checkConfig,  __FILE__, __LINE__);
 
-        if ($this->un_oss !== true){
+        if ($this->unOss !== true){
             switch ($this->driver){
                 case 'oss':
                     $this->instance = new OssClient($this->connection['access_id'], $this->connection['access_secret'], $this->connection['endpoint']);
@@ -50,6 +50,41 @@ class ThinkOss
         }
 
         $this->directory = config('oss.directory');
+    }
+
+    /**
+     * description 自定义文件路径上传文件
+     * author chicho
+     * @param $inputName
+     * @param string $path
+     * @param string $bucketKey
+     * @param array $rule
+     * @return array|bool|mixed
+     * @throws ErrorException
+     */
+    public function uploadByPath($inputName, $path = '', $bucketKey = 'public', $rule = ['ext' => ['gif', 'jpg', 'jpeg', 'bmp', 'png', 'swf']])
+    {
+        if (empty($bucketKey)) return $this->ret(50000, '桶不能为空');
+        $this->getBucket($bucketKey);
+        $info = request()->file($inputName);
+        if (empty($info)) return $this->ret(50000, '上传文件不能为空');
+
+        $checkRule = $info->check($rule);
+        if ($checkRule !== true) return $this->ret(50000, $info->getError());
+        $content = file_get_contents($info->getInfo('tmp_name'));
+
+        if (empty($path)) $path = $info->getInfo('name');
+        if (!$this->unOss){
+            $result = $this->putObject($path, $content);
+            if ($result !== true) return $result;
+            $this->uploadInfo = ['path' => $path, 'visit_path' => $this->getImgPath($path, 3600, $bucketKey)];
+        }
+
+        $result = $this->saveToLocal($info->getInfo('tmp_name'), $path);
+        if ($this->unOss && $result > 0)
+            $this->uploadInfo = ['path' => 'uploads/'.$path, 'visit_path' => $this->getImgPath('uploads/'.$path)];
+
+        return $this->uploadInfo;
     }
 
     /**
@@ -82,7 +117,7 @@ class ThinkOss
                 $path = $this->setFileName($file, $real_dir);
                 $content = file_get_contents($file->getInfo('tmp_name'));
 
-                if (!$this->un_oss){
+                if (!$this->unOss){
                     $result = $this->putObject($path, $content);
                     if ($result === true){
                         $this->setUploadInfo('success', $path, '', $this->getImgPath($path));
@@ -92,7 +127,7 @@ class ThinkOss
                 }
 
                 $result = $this->saveToLocal($file->getInfo('tmp_name'), $path);
-                if ($this->un_oss && $result > 0)
+                if ($this->unOss && $result > 0)
                     $this->setUploadInfo('success', 'uploads/'.$path, '', $this->getImgPath('uploads/'.$path));
             }
         }else{
@@ -102,18 +137,18 @@ class ThinkOss
             $content = file_get_contents($info->getInfo('tmp_name'));
             $path = $this->setFileName($info, $real_dir);
 
-            if (!$this->un_oss){
+            if (!$this->unOss){
                 $result = $this->putObject($path, $content);
                 if ($result !== true) return $result;
-                $this->upload_info = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
+                $this->uploadInfo = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
             }
 
             $result = $this->saveToLocal($info->getInfo('tmp_name'), $path);
-            if ($this->un_oss && $result > 0)
-                $this->upload_info = ['path' => 'uploads/'.$path, 'visit_path' => $this->getImgPath('uploads/'.$path)];
+            if ($this->unOss && $result > 0)
+                $this->uploadInfo = ['path' => 'uploads/'.$path, 'visit_path' => $this->getImgPath('uploads/'.$path)];
         }
 
-        return $this->upload_info;
+        return $this->uploadInfo;
     }
 
     /**
@@ -125,9 +160,6 @@ class ThinkOss
      * @throws ErrorException
      */
     public function localToOss($filePath = '', $dir = 'DEFAULT'){
-        if (!array_key_exists($dir, $this->directory))
-            throw new ErrorException(0, '所选目录不存在',  __FILE__, __LINE__);
-
         if (!is_file($filePath))
             return $this->ret(50000, '文件路径错误');
 
@@ -136,9 +168,9 @@ class ThinkOss
         $content = file_get_contents($filePath);
         $result = $this->putObject($path, $content);
         if ($result !== true) return $result;
-        $this->upload_info = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
+        $this->uploadInfo = ['path' => $path, 'visit_path' => $this->getImgPath($path)];
 
-        return $this->upload_info;
+        return $this->uploadInfo;
     }
 
     /**
@@ -162,11 +194,11 @@ class ThinkOss
      * author chicho
      * @param $type
      * @param $path
-     * @param string $faild_reason
-     * @param string $visit_path
+     * @param string $faildReason
+     * @param string $visitPath
      */
-    protected function setUploadInfo($type, $path, $faild_reason = '', $visit_path = ''){
-        array_push($this->upload_info, ['path' => $path, 'faild_reason' => $faild_reason, 'type' => $type, 'visit_path' => $visit_path]);
+    protected function setUploadInfo($type, $path, $faildReason = '', $visitPath = ''){
+        array_push($this->uploadInfo, ['path' => $path, 'faild_reason' => $faildReason, 'type' => $type, 'visit_path' => $visitPath]);
     }
 
     /**
@@ -180,7 +212,7 @@ class ThinkOss
         $path = $this->handleUrl($path);
         if ($path == '') return '图片路径不能为空';
 
-        if ($this->un_oss){
+        if ($this->unOss){
             @unlink($path);
             return $this->ret();
         }
@@ -205,29 +237,36 @@ class ThinkOss
      * @return array|bool|mixed|string
      * @throws ErrorException
      */
-    public function getImgPath($path, $timeout = 3600){
-        if ($this->un_oss){
+    public function getImgPath($path, $timeout = 3600, $bucket = ''){
+        if ($this->unOss){
             return config('oss.domain').$path;
         }
 
-        $path = $this->handleUrl($path);
-        if ($path == '') return '';
-        $bucket_info = $this->getBucketByPath($path);
-        if (array_key_exists('code', $bucket_info)){
-            if ($bucket_info['code'] == 50000){
-                return config('oss.domain').$path;
+        $bucketInfo = [];
+        if (empty($bucket)){
+            $path = $this->handleUrl($path);
+            if ($path == '') return '';
+            $bucketInfo = $this->getBucketByPath($path);
+            if (array_key_exists('code', $bucketInfo)){
+                if ($bucketInfo['code'] == 50000){
+                    return config('oss.domain').$path;
+                }
             }
+        }else{
+            $this->getBucket($bucket);
+            $bucketInfo['bucket'] = $this->bucket;
+            $bucketInfo['type'] = $bucket;
         }
 
-        $result = strpos($bucket_info['type'], 'private_');
+        $result = strpos($bucketInfo['type'], 'private_');
         if ($this->driver == 'oss'){
             if ($result !== false)
-                return $this->baseCall('signUrl', [$bucket_info['bucket'], $path, $timeout], true);
-            return "https://".$bucket_info['bucket'] . '.' . $this->connection['endpoint'] . '/' . $path;
+                return $this->baseCall('signUrl', [$bucketInfo['bucket'], $path, $timeout], true);
+            return "https://".$bucketInfo['bucket'] . '.' . $this->connection['endpoint'] . '/' . $path;
         }elseif ($this->driver == 'cos'){
             if ($result !== false)
-                return $this->baseCall('getObjectUrl', [$bucket_info['bucket'], $path, '+'. $timeout / 60 .' minutes'], true);
-            return "https://".$bucket_info['bucket'] . '.cos.' . $this->connection['region'] . '.myqcloud.com/' . $path;
+                return $this->baseCall('getObjectUrl', [$bucketInfo['bucket'], $path, '+'. $timeout / 60 .' minutes'], true);
+            return "https://".$bucketInfo['bucket'] . '.cos.' . $this->connection['region'] . '.myqcloud.com/' . $path;
         }
     }
 
@@ -240,18 +279,19 @@ class ThinkOss
      */
     public function getBucketByPath($path){
         if (!count($this->directory)) throw new ErrorException(0, '配置目录不能为空',  __FILE__, __LINE__);
-        $dir_info = '';
+        $dirInfo = '';
         foreach ($this->directory as $key => $value){
             if (!is_array($value)) continue;
             if (!array_key_exists('dir', $value)) continue;
             if (strpos($path, $value['dir']) !== false){
-                $dir_info = $value;
+                $dirInfo = $value;
                 break;
             }
         }
-        if ($dir_info === '') return $this->ret(50000, '找不到图片对应的bucket');
-        $this->getBucket($dir_info['type']);
-        return ['bucket' => $this->bucket, 'type' => $dir_info['type']];
+
+        if ($dirInfo === '') return $this->ret(50000, '找不到图片对应的bucket');
+        $this->getBucket($dirInfo['type']);
+        return ['bucket' => $this->bucket, 'type' => $dirInfo['type']];
     }
 
     /**
@@ -264,8 +304,8 @@ class ThinkOss
         if (empty($url)) return '';
         if (!preg_match('/(http:\/\/)|(https:\/\/)/i', $url))
             return $url;
-        $path_arr = parse_url($url);
-        return substr($path_arr['path'], 1);
+        $pathArr = parse_url($url);
+        return substr($pathArr['path'], 1);
     }
 
     //下载文件
@@ -283,9 +323,9 @@ class ThinkOss
     protected function saveToLocal($file, $path){
         if (!config('oss.is_save_to_local')) return false;
         $path = 'uploads/' . $path;
-        $path_dir = str_replace(basename($path), '', $path);
-        if (!file_exists($path_dir))
-            mkdir ($path_dir, 0777, true );
+        $pathDir = str_replace(basename($path), '', $path);
+        if (!file_exists($pathDir))
+            mkdir ($pathDir, 0777, true );
         return file_put_contents($path, file_get_contents($file));
     }
 
@@ -307,8 +347,8 @@ class ThinkOss
      * @return bool|string
      */
     protected function checkConfig(){
-        $this->un_oss = config('oss.un_oss');
-        if ($this->un_oss === true) return true;
+        $this->unOss = config('oss.un_oss');
+        if ($this->unOss === true) return true;
 
         $driver = config('oss.driver');
         if (empty($driver)) return '请配置驱动';
@@ -317,12 +357,10 @@ class ThinkOss
         }
 
         $connection = config('oss.connection')[$driver];
-
         if ($driver == 'oss'){
             if ($connection['access_id'] == '' || $connection['access_secret'] == '' || $connection['endpoint'] == '')
                 return '请配置连接参数';
         }
-
         if ($driver == 'cos'){
             if ($connection['access_id'] == '' || $connection['access_secret'] == '' || $connection['region'] == '')
                 return '请配置连接参数';
@@ -330,7 +368,6 @@ class ThinkOss
 
         $this->driver = $driver;
         $this->connection = $connection;
-
         return true;
     }
 
@@ -390,19 +427,17 @@ class ThinkOss
      * author chicho
      * @param $method
      * @param $arguments
-     * @param bool $is_ret_original
+     * @param bool $isRetOriginal
      * @return array|bool|mixed
      * @throws ErrorException
      */
-    public function baseCall($method, $arguments, $is_ret_original = false){
-
+    public function baseCall($method, $arguments, $isRetOriginal = false){
         if ($this->driver == 'oss'){
             if (!in_array($method, get_class_methods($this->instance)))
                 throw new ErrorException(0, '方法不存在',  __FILE__, __LINE__);
-
             try{
                 $result = call_user_func_array(array($this->instance, $method), $arguments);
-                if ($is_ret_original) return $result;
+                if ($isRetOriginal) return $result;
                 return true;
             }catch (OssException $e){
                 return $this->ret(50000, $e->getMessage());
@@ -410,8 +445,7 @@ class ThinkOss
         }elseif($this->driver == 'cos'){
             try{
                 $result = call_user_func_array(array($this->instance, $method), $arguments);
-
-                if ($is_ret_original) return $result;
+                if ($isRetOriginal) return $result;
                 return true;
             }catch (\Exception $e){
                 return $this->ret(50000, $e->getMessage());
